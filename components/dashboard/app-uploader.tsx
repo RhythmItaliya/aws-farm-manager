@@ -71,7 +71,7 @@ export function AppUploader({ projectId, projectArn }: AppUploaderProps) {
         body: JSON.stringify({
           projectId,
           name: file.name,
-          appType: appType === "android" ? "ANDROID" : "IOS",
+          appType: appType, // Use lowercase as defined in Prisma schema
           fileName: file.name,
           fileSize: file.size,
           awsUploadArn: uploadArn,

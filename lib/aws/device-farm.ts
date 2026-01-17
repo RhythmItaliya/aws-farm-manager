@@ -48,6 +48,37 @@ export async function createProject(name: string) {
   }
 }
 
+export async function deleteProject(arn: string) {
+  try {
+    const { DeleteProjectCommand } = await import("@aws-sdk/client-device-farm");
+
+    // 1. Force stop all remote sessions first
+    try {
+      const activeSessions = await listRemoteAccessSessions(arn);
+      if (activeSessions?.remoteAccessSessions) {
+        await Promise.all(
+          activeSessions.remoteAccessSessions.map(async (session) => {
+            if (session.arn && session.status !== "COMPLETED") {
+              console.log(`Stopping active session: ${session.arn}`);
+              await stopRemoteAccessSession(session.arn);
+            }
+          })
+        );
+        // Wait a small bit for AWS to process stops
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    } catch (cleanupError) {
+      console.warn("Error cleaning up sessions, trying to delete anyway:", cleanupError);
+    }
+
+    const command = new DeleteProjectCommand({ arn });
+    return await client.send(command);
+  } catch (error) {
+    console.error("Error in deleteProject:", error);
+    throw error;
+  }
+}
+
 // Device Pools
 export async function listDevicePools(projectArn: string) {
   try {
@@ -98,7 +129,6 @@ export async function deleteDevicePool(arn: string) {
 }
 
 // Devices
-
 
 // ...
 
@@ -278,16 +308,21 @@ export async function createRemoteAccessSession(
   deviceArn: string,
   name?: string
 ) {
-  const { CreateRemoteAccessSessionCommand } = await import("@aws-sdk/client-device-farm");
-  const command = new CreateRemoteAccessSessionCommand({
-    projectArn,
-    deviceArn,
-    name: name || `Session-${Date.now()}`,
-    configuration: {
-      billingMethod: "METERED",
-    }
-  });
-  return await client.send(command);
+  try {
+    const { CreateRemoteAccessSessionCommand } = await import("@aws-sdk/client-device-farm");
+    const command = new CreateRemoteAccessSessionCommand({
+      projectArn,
+      deviceArn,
+      name: name || `Session-${Date.now()}`,
+      configuration: {
+        billingMethod: "METERED",
+      },
+    });
+    return await client.send(command);
+  } catch (error) {
+    console.error("Error creating session:", error);
+    throw error;
+  }
 }
 
 export async function getRemoteAccessSession(arn: string) {
@@ -297,3 +332,27 @@ export async function getRemoteAccessSession(arn: string) {
 }
 
 export const deviceFarmClient = client;
+
+// Helper to list active sessions for cleanup
+export async function listRemoteAccessSessions(projectArn: string) {
+  try {
+    const { ListRemoteAccessSessionsCommand } = await import("@aws-sdk/client-device-farm");
+    const command = new ListRemoteAccessSessionsCommand({ arn: projectArn });
+    return await client.send(command);
+  } catch (error) {
+    console.error("Error listing sessions:", error);
+    return { remoteAccessSessions: [] };
+  }
+}
+
+// Helper to stop a session
+export async function stopRemoteAccessSession(arn: string) {
+  try {
+    const { StopRemoteAccessSessionCommand } = await import("@aws-sdk/client-device-farm");
+    const command = new StopRemoteAccessSessionCommand({ arn });
+    return await client.send(command);
+  } catch (error) {
+    console.error("Error stopping session:", error);
+    // Ignore error if session is already stopped
+  }
+}

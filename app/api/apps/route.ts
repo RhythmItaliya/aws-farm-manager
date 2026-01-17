@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         uploadUrl: uploadResponse.upload?.url,
         uploadArn: uploadResponse.upload?.arn,
-        status: uploadResponse.upload?.status
+        status: uploadResponse.upload?.status,
       });
     }
 
@@ -58,7 +58,14 @@ export async function POST(request: Request) {
     const validatedData = uploadAppSchema.parse(body);
 
     const app = await createApp(session.user.id, validatedData);
-    return NextResponse.json(app, { status: 201 });
+
+    // Convert BigInt to string for JSON serialization
+    const appResponse = {
+      ...app,
+      fileSize: app.fileSize ? app.fileSize.toString() : null,
+    };
+
+    return NextResponse.json(appResponse, { status: 201 });
   } catch (error) {
     console.error("Error processing app request:", error);
 

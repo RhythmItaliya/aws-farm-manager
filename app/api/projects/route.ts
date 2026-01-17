@@ -30,7 +30,23 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = createProjectSchema.parse(body);
 
-    const project = await createProject(session.user.id, validatedData);
+    // Create AWS Device Farm project first
+    let awsProjectArn: string | undefined;
+    try {
+      const { createProject: createAwsProject } = await import("@/lib/aws/device-farm");
+      const awsResponse = await createAwsProject(validatedData.name);
+      awsProjectArn = awsResponse.project?.arn;
+    } catch (awsError) {
+      console.error("Failed to create AWS project:", awsError);
+      // Continue without AWS sync - user can sync later
+    }
+
+    // Create local project with AWS ARN if available
+    const project = await createProject(session.user.id, {
+      ...validatedData,
+      awsProjectArn,
+    });
+
     return NextResponse.json(project, { status: 201 });
   } catch (error) {
     console.error("Error creating project:", error);

@@ -28,6 +28,7 @@ interface Device {
   heapSize: number;
   memory: number;
   image: string;
+  remoteAccessEnabled?: boolean;
 }
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -73,9 +74,7 @@ export function DeviceList({ projectArn, onConnectRequest, connectingDeviceId }:
   const groupedDevices = {
     ANDROID: {
       PHONE: filteredDevices.filter((d) => d.platform === "ANDROID" && d.formFactor === "PHONE"),
-      TABLET: filteredDevices.filter(
-        (d) => d.platform === "ANDROID" && d.formFactor === "TABLET"
-      ),
+      TABLET: filteredDevices.filter((d) => d.platform === "ANDROID" && d.formFactor === "TABLET"),
     },
     IOS: {
       PHONE: filteredDevices.filter((d) => d.platform === "IOS" && d.formFactor === "PHONE"),
@@ -108,7 +107,7 @@ export function DeviceList({ projectArn, onConnectRequest, connectingDeviceId }:
         <Badge variant="outline" className="text-xs">
           {device.platform}
         </Badge>
-        {projectArn && (
+        {projectArn && device.remoteAccessEnabled && (
           <Button
             size="sm"
             variant="secondary"
@@ -121,6 +120,11 @@ export function DeviceList({ projectArn, onConnectRequest, connectingDeviceId }:
               "Connect"
             )}
           </Button>
+        )}
+        {projectArn && !device.remoteAccessEnabled && (
+          <Badge variant="outline" className="text-xs text-muted-foreground">
+            No Remote Access
+          </Badge>
         )}
       </div>
     </div>
@@ -195,12 +199,11 @@ export function DeviceList({ projectArn, onConnectRequest, connectingDeviceId }:
             <TabsContent value="ios" className="mt-0">
               <DeviceSection title="Phones" devices={groupedDevices.IOS.PHONE} />
               <DeviceSection title="Tablets" devices={groupedDevices.IOS.TABLET} />
-              {groupedDevices.IOS.PHONE.length === 0 &&
-                groupedDevices.IOS.TABLET.length === 0 && (
-                  <p className="text-sm text-center text-muted-foreground py-4">
-                    No iOS devices found
-                  </p>
-                )}
+              {groupedDevices.IOS.PHONE.length === 0 && groupedDevices.IOS.TABLET.length === 0 && (
+                <p className="text-sm text-center text-muted-foreground py-4">
+                  No iOS devices found
+                </p>
+              )}
             </TabsContent>
           </Tabs>
         )}

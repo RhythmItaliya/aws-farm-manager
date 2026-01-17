@@ -56,6 +56,20 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
+
+    // Get project first to check for AWS ARN
+    const project = await getProjectById(id, session.user.id);
+
+    if (project?.awsProjectArn) {
+      try {
+        const { deleteProject: deleteAwsProject } = await import("@/lib/aws/device-farm");
+        await deleteAwsProject(project.awsProjectArn);
+      } catch (awsError) {
+        console.error("Failed to delete AWS project:", awsError);
+        // Continue with local deletion even if AWS fails
+      }
+    }
+
     await deleteProject(id, session.user.id);
 
     return NextResponse.json({ success: true });

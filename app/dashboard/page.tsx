@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 
 interface Project {
   id: string;
@@ -49,12 +50,25 @@ export default function DashboardPage() {
         if (!res.ok) return;
         const data = await res.json();
 
+        console.log("Session status:", data.status, data);
+
         if (data.status === "RUNNING") {
-          setActiveSession(prev => prev ? ({ ...prev, status: "RUNNING", endpoint: data.endpoint }) : null);
+          setActiveSession((prev) =>
+            prev ? { ...prev, status: "RUNNING", endpoint: data.endpoint } : null
+          );
           setSessionLoading(false);
-        } else if (data.status === "FAILED" || data.status === "ERRORED" || data.status === "COMPLETED") {
-          setActiveSession(prev => prev ? ({ ...prev, status: data.status }) : null);
+          toast.success("Device is ready!");
+        } else if (
+          data.status === "FAILED" ||
+          data.status === "ERRORED" ||
+          data.status === "COMPLETED"
+        ) {
+          setActiveSession((prev) => (prev ? { ...prev, status: data.status } : null));
           setSessionLoading(false);
+          toast.error(`Session ${data.status.toLowerCase()}`);
+        } else {
+          // Update status to show progress
+          setActiveSession((prev) => (prev ? { ...prev, status: data.status } : null));
         }
       } catch (e) {
         console.error("Polling error", e);
@@ -64,7 +78,13 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [activeSession]);
 
-  async function handleConnectRequest({ deviceArn, deviceName }: { deviceArn: string, deviceName: string }) {
+  async function handleConnectRequest({
+    deviceArn,
+    deviceName,
+  }: {
+    deviceArn: string;
+    deviceName: string;
+  }) {
     if (!selectedProject?.awsProjectArn) return;
 
     setConnectingDeviceId(deviceArn);
@@ -79,8 +99,8 @@ export default function DashboardPage() {
         body: JSON.stringify({
           projectArn: selectedProject.awsProjectArn,
           deviceArn: deviceArn,
-          name: `Session-${deviceName.replace(/\s+/g, '-')}`
-        })
+          name: `Session-${deviceName.replace(/\s+/g, "-")}`,
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to start session");
@@ -89,9 +109,8 @@ export default function DashboardPage() {
       setActiveSession({
         arn: session.arn,
         status: session.status || "PENDING",
-        endpoint: session.endpoint
+        endpoint: session.endpoint,
       });
-
     } catch (err) {
       console.error(err);
       setSessionLoading(false); // Reset on error
@@ -133,7 +152,6 @@ export default function DashboardPage() {
         {/* PANEL 2: MAIN CONTENT AREA */}
         <Allotment.Pane minSize={400}>
           <div className="flex h-full flex-col bg-background">
-
             {/* ACTIVE SESSION VIEW (Priority) */}
             {activeSession ? (
               <div className="flex h-full flex-col">
@@ -154,30 +172,71 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="flex-1 bg-black relative">
-                  {activeSession.endpoint ? (
-                    <iframe
-                      src={activeSession.endpoint}
-                      className="w-full h-full border-none"
-                      allow="camera; microphone"
-                    />
+                  {activeSession.status === "RUNNING" ? (
+                    <div className="flex flex-col items-center justify-center h-full text-white space-y-6 bg-zinc-900 rounded-lg border border-zinc-800">
+                      <div className="text-center space-y-2">
+                        <div className="h-16 w-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/20">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="h-8 w-8"
+                          >
+                            <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+                            <path d="M12 18h.01" />
+                          </svg>
+                        </div>
+                        <h3 className="text-xl font-semibold">Device is Ready!</h3>
+                        <p className="text-zinc-400 max-w-md">
+                          The remote session has been established successfully. Due to AWS security
+                          policies, the interactive video stream must be viewed in the AWS Console.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-3 min-w-[200px]">
+                        <a
+                          href={(() => {
+                            // Construct AWS Console URL
+                            const arnParts = activeSession.arn.split(":");
+                            const region = arnParts[3] || "us-west-2";
+                            const projectId = arnParts[6].split("/")[0];
+                            const sessionId = arnParts[6].split("/")[1];
+                            return `https://${region}.console.aws.amazon.com/devicefarm/home?region=${region}#/mobile/projects/${projectId}/sessions/${sessionId}`;
+                          })()}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md font-medium transition-colors"
+                        >
+                          Open Remote Control
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                            <polyline points="15 3 21 3 21 9" />
+                            <line x1="10" y1="14" x2="21" y2="3" />
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-white">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
                       <p>Provisioning Device...</p>
                       <p className="text-sm text-gray-400 mt-2">This usually takes 1-2 minutes.</p>
-                    </div>
-                  )}
-                  {/* Fallback Link if Iframe blocked */}
-                  {activeSession.endpoint && (
-                    <div className="absolute bottom-4 right-4">
-                      <a
-                        href={activeSession.endpoint}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-white/10 backdrop-blur text-white px-3 py-1 rounded text-xs hover:bg-white/20"
-                      >
-                        open in new tab ↗
-                      </a>
                     </div>
                   )}
                 </div>
@@ -207,7 +266,9 @@ export default function DashboardPage() {
                         {sessionLoading && (
                           <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-center gap-3 mb-6">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                            <p className="text-sm font-medium">Initializing session for {sessionDeviceName}...</p>
+                            <p className="text-sm font-medium">
+                              Initializing session for {sessionDeviceName}...
+                            </p>
                           </div>
                         )}
                         <section>
@@ -280,7 +341,9 @@ export default function DashboardPage() {
                     <div className="p-4 h-full">
                       <DeviceList
                         projectArn={selectedProject?.awsProjectArn}
-                        onConnectRequest={(device) => handleConnectRequest({ deviceArn: device.arn, deviceName: device.name })}
+                        onConnectRequest={(device) =>
+                          handleConnectRequest({ deviceArn: device.arn, deviceName: device.name })
+                        }
                         connectingDeviceId={connectingDeviceId}
                       />
                     </div>

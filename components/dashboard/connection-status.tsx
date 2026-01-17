@@ -10,7 +10,9 @@ interface ConnectionStatusProps {
 }
 
 export function ConnectionStatus({ className }: ConnectionStatusProps) {
-  const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "disconnected">("checking");
+  const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "disconnected">(
+    "checking"
+  );
   const [awsStatus, setAwsStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [awsError, setAwsError] = useState<string | null>(null);
 
@@ -45,7 +47,10 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
     }
   }
 
-  const getStatusBadge = (status: "checking" | "connected" | "disconnected", error?: string | null) => {
+  const getStatusBadge = (
+    status: "checking" | "connected" | "disconnected",
+    error?: string | null
+  ) => {
     if (status === "checking") {
       return (
         <Badge variant="secondary" className="gap-1">

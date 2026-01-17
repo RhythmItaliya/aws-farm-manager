@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     const run = await createRun(session.user.id, {
       ...validatedData,
       devicePoolArn,
-      awsRunArn: runOutput.run?.arn
+      awsRunArn: runOutput.run?.arn,
     });
 
     return NextResponse.json(run, { status: 201 });
