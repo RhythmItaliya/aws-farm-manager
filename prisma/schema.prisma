@@ -1,0 +1,133 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum RunStatus {
+  pending
+  running
+  completed
+  failed
+  cancelled
+}
+
+enum AppType {
+  android
+  ios
+}
+
+// User model (for authentication)
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  projects        Project[]
+  deviceFarmApps  DeviceFarmApp[]
+  deviceFarmRuns  DeviceFarmRun[]
+  sessions        Session[]
+
+  @@map("users")
+}
+
+// Projects table (Device Farm projects)
+model Project {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  name            String
+  description     String?
+  awsProjectArn   String?  @map("aws_project_arn")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceFarmApps  DeviceFarmApp[]
+  deviceFarmRuns  DeviceFarmRun[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+// Device Farm Apps table
+model DeviceFarmApp {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  projectId     String   @map("project_id")
+  name          String
+  appType       AppType  @map("app_type")
+  awsUploadArn  String?  @map("aws_upload_arn")
+  fileName      String?  @map("file_name")
+  fileSize      BigInt?  @map("file_size")
+  uploadedAt    DateTime @default(now()) @map("uploaded_at")
+
+  // Relations
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deviceFarmRuns DeviceFarmRun[]
+
+  @@index([userId])
+  @@index([projectId])
+  @@map("device_farm_apps")
+}
+
+// Device Farm Runs table
+model DeviceFarmRun {
+  id              String     @id @default(cuid())
+  userId          String     @map("user_id")
+  projectId       String     @map("project_id")
+  appId           String?    @map("app_id")
+  name            String
+  awsRunArn       String?    @map("aws_run_arn")
+  devicePoolArn   String?    @map("device_pool_arn")
+  status          RunStatus  @default(pending)
+  result          Json?
+  startedAt       DateTime?  @map("started_at")
+  completedAt     DateTime?  @map("completed_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  app             DeviceFarmApp?  @relation(fields: [appId], references: [id], onDelete: SetNull)
+  sessions        Session[]
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([status])
+  @@map("device_farm_runs")
+}
+
+// Sessions table (active Device Farm sessions per user)
+model Session {
+  id              String     @id @default(cuid())
+  userId          String     @map("user_id")
+  runId           String?    @map("run_id")
+  awsSessionArn   String?    @map("aws_session_arn")
+  deviceArn       String?    @map("device_arn")
+  status          RunStatus  @default(pending)
+  startedAt       DateTime   @default(now()) @map("started_at")
+  endedAt         DateTime?  @map("ended_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  // Relations
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  run             DeviceFarmRun?  @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@map("sessions")
+}
